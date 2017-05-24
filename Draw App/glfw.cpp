@@ -8,8 +8,10 @@
 
 #include "glfw.h"
 
+/* ------------------------------------------------------------------------------------ */
+
 Glfw::Glfw()
-: glfw_window{nullptr}, _width(0), _height(0)
+: glfw_window{nullptr}, _width{0}, _height{0},  _half_width{0}, _half_height{0}
 {
     // Initialise GLFW
     if(!glfwInit()){
@@ -37,6 +39,8 @@ Glfw::Glfw()
     
     // Set view port to the window dimensions
     glViewport(0, 0, _width, _height);
+    _half_width = _width*0.5;
+    _half_height = _height*0.5;
     
     // Initialise GLEW - Set GLEW to use modern techniques (glewExperimental)
     glewExperimental = GL_TRUE;
@@ -47,9 +51,10 @@ Glfw::Glfw()
     // Register input event handler
     glfwSetKeyCallback(glfw_window, key_callback);
     glfwSetMouseButtonCallback(glfw_window, mouse_button_callback);
-    glfwSetCursorPosCallback(glfw_window, cursor_position_callback);
     
 }
+
+/* ------------------------------------------------------------------------------------ */
 
 Glfw::~Glfw()
 {
@@ -57,43 +62,24 @@ Glfw::~Glfw()
     glfwTerminate();
 }
 
-GLFWwindow* Glfw::window() const
-{
-    return glfw_window;
-}
-
-inline float Glfw::aspect_ratio() {
-    return (float)_width/_height;
-}
-
-inline int Glfw::width() {
-    return _width;
-}
-
-inline int Glfw::height() {
-    return _height;
-}
+/* ------------------------------------------------------------------------------------ */
 
 bool Glfw::is_mouse_down = false;
 
-inline bool Glfw::mouse_down() const {
-    return is_mouse_down;
-}
+/* ------------------------------------------------------------------------------------ */
 
-void Glfw::key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
+void Glfw::key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
+{
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 }
+
+/* ------------------------------------------------------------------------------------ */
 
 void Glfw::mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     is_mouse_down = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
 }
 
-void Glfw::cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
-{
-    if(is_mouse_down) {
-        
-    }
-}
+/* ------------------------------------------------------------------------------------ */

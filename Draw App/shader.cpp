@@ -24,6 +24,11 @@ Shader::~Shader()
     glDeleteProgram(program_id);
 }
 
+GLuint Shader::program()
+{
+    return program_id;
+}
+
 void Shader::use()
 {
     glUseProgram(program_id);
@@ -81,7 +86,7 @@ void Shader::checkCompileErrors(GLuint object, const ShaderCompileType& type) {
     GLchar infoLog[1024];
     std::string error_message{};
     
-    if(type == program) {
+    if(type == ShaderCompileType::program) {
         glGetProgramiv(object, GL_LINK_STATUS, &success);
         if(!success) {
             glGetProgramInfoLog(object, 1024, nullptr, infoLog);
@@ -107,7 +112,7 @@ std::string Shader::type_to_str(const ShaderCompileType& type)
         case vertex: return "vertex";
         case fragment: return "fragment";
         case geometry: return "geometry";
-        case program: return "program";
+        case ShaderCompileType::program: return "program";
         default: return "unknown type";
     }
 }
