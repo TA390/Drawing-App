@@ -22,7 +22,7 @@ public:
     Shader(const GLchar* vertex_source = nullptr, const GLchar* fragment_source = nullptr,
            const GLchar* geometry_source = nullptr);
     ~Shader();
-    void use();
+    void use() const;
     GLuint program();
     void compile(const GLchar* vertex_source, const GLchar* fragment_source,
                  const GLchar* geometry_source = nullptr);

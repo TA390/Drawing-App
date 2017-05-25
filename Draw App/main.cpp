@@ -15,6 +15,8 @@
 #include "glfw.h"
 #include "shader.h"
 #include "buffer_range_lock.h"
+#include "multi_draw_buffer.h"
+#include "draw_buffer.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -30,6 +32,11 @@ int main(int argc, const char * argv[]) {
     Glfw glfw{};
     GLFWwindow* window = glfw.window();
 
+    
+    if(glewIsSupported("ARB_multi_draw_indirect")) {
+        std::cout << "Supported!!!\n";
+    }
+    
     // Clear colour buffer
     glClearColor(1.0, 1.0, 1.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -40,31 +47,8 @@ int main(int argc, const char * argv[]) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    // VAO
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    
-    // VBO
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    
     // Dynamic Vertex Buffer
-    GLuint length = 3;
-    GLuint stride = sizeof(GLfloat)*length;
-    size_t buffer_size = std::pow(2.0, 3.0);
-    size_t buffer_bytes = sizeof(GLfloat)*buffer_size;
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, length, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-    glBufferData(GL_ARRAY_BUFFER, buffer_bytes, nullptr, GL_DYNAMIC_DRAW);
-//    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
-//    glBufferStorage(GL_ARRAY_BUFFER, buffer_bytes, nullptr, flags | GL_DYNAMIC_STORAGE_BIT);
-//    GLvoid* mapped_data = glMapBufferRange(GL_ARRAY_BUFFER, 0, buffer_size, flags);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-//    if(mapped_data == nullptr) { throw std::runtime_error("Failed to map buffer."); }
-//    GLfloat* data = static_cast<GLfloat*>(mapped_data);
+    DrawBuffer<GLfloat, GL_FLOAT> buffer{};
     
     // Shader programs
     const GLchar* vs_draw = {
@@ -110,41 +94,35 @@ int main(int argc, const char * argv[]) {
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-    // Render loop
-    GLuint index = 0;
-    bool start = true;
-    double prev_xpos, prev_ypos;
-    GLsync fence = nullptr;
-    BufferRangeLock lock{};
-    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT;
+    
     while(!glfwWindowShouldClose(window)) {
 
-        if(buffer_size <= (index+1)*stride) {
-        
-            // NOTE: Use sparse buffers if available.
-            
-            buffer_size *= 2;
-            buffer_bytes = sizeof(GLfloat)*buffer_size;
-            
-            GLuint tmp_vbo;
-            glGenBuffers(1, &tmp_vbo);
-            
-            glBindVertexArray(vao);
-            glBindBuffer(GL_ARRAY_BUFFER, tmp_vbo);
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(0, length, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-            glBufferData(GL_ARRAY_BUFFER, buffer_bytes, nullptr, GL_DYNAMIC_DRAW);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glBindVertexArray(0);
-            
-            glBindBuffer(GL_COPY_READ_BUFFER, vbo);
-            glBindBuffer(GL_COPY_WRITE_BUFFER, tmp_vbo);
-            glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, index*stride);
-            
-            glDeleteBuffers(1, &vbo);
-            vbo = tmp_vbo;
-            
-        }
+//        if(buffer.size() <= (index+1)*buffer.stride()) {
+//        
+//            // NOTE: Use sparse buffers if available.
+//            
+//            buffer_size *= 2;
+//            buffer_bytes = sizeof(GLfloat)*buffer_size;
+//            
+//            GLuint tmp_vbo;
+//            glGenBuffers(1, &tmp_vbo);
+//            
+//            glBindVertexArray(vao);
+//            glBindBuffer(GL_ARRAY_BUFFER, tmp_vbo);
+//            glEnableVertexAttribArray(0);
+//            glVertexAttribPointer(0, length, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
+//            glBufferData(GL_ARRAY_BUFFER, buffer_bytes, nullptr, GL_DYNAMIC_DRAW);
+//            glBindBuffer(GL_ARRAY_BUFFER, 0);
+//            glBindVertexArray(0);
+//            
+//            glBindBuffer(GL_COPY_READ_BUFFER, vbo);
+//            glBindBuffer(GL_COPY_WRITE_BUFFER, tmp_vbo);
+//            glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, index*stride);
+//            
+//            glDeleteBuffers(1, &vbo);
+//            vbo = tmp_vbo;
+//            
+//        }
         
         // Check for and execute events - block if no events.
         glfwWaitEvents();
@@ -152,52 +130,9 @@ int main(int argc, const char * argv[]) {
         // Clear buffers
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        // Cursor position
-        double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
+        // Render
+        buffer.render(glfw, shader);
 
-        
-        GLuint start_index = index*stride;
-        bool write = false;
-        
-        // Write to the buffer
-        if(prev_xpos != xpos || prev_ypos != ypos || start) {
-            prev_xpos = xpos;
-            prev_ypos = ypos;
-            start = false;
-            
-            lock.remove_signaled_locks(0);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            GLfloat* data = (GLfloat*)glMapBufferRange(GL_ARRAY_BUFFER, start_index, length, flags);
-            
-            if(data != nullptr) {
-                *data++ = xpos; //glfw.normalise_xpos(xpos);
-                *data++ = ypos; //glfw.normalise_ypos(ypos);
-                *data = 0.0;
-                glFlushMappedBufferRange(GL_ARRAY_BUFFER, start_index, length);
-                
-            }
-            
-            if(glUnmapBuffer(GL_ARRAY_BUFFER)) {
-                ++index;
-                write = true;
-            } else {
-                std::cout << "Map Failed.\n";
-            }
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            
-        }
-        
-        // Draw
-        shader.use();
-        glBindVertexArray(vao);
-        glDrawArrays(GL_LINE_STRIP, 0, index);
-        if(write) { lock.lock_range(start_index, length); }
-        fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-        glBindVertexArray(0);
-        
-        // Swap the buffer
-        glfwSwapBuffers(window);
     }
 }
 

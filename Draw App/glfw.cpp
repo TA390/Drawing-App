@@ -28,7 +28,7 @@ Glfw::Glfw()
     glfwSwapInterval(1);
     
     // Create a window
-    glfw_window = glfwCreateWindow(800, 600, "Drawing App", nullptr, nullptr);
+    glfw_window = glfwCreateWindow(800, 600, "Drawing App (Development)", nullptr, nullptr);
     if(glfw_window == nullptr) {
         throw std::runtime_error("GLFW failed to create a window.");
     }
