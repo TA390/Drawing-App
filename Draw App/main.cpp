@@ -14,9 +14,9 @@
 
 #include "glfw.h"
 #include "shader.h"
-#include "buffer_range_lock.h"
-#include "multi_draw_buffer.h"
 #include "draw_buffer.h"
+#include "multi_draw_buffer.h"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -32,11 +32,6 @@ int main(int argc, const char * argv[]) {
     Glfw glfw{};
     GLFWwindow* window = glfw.window();
 
-    
-    if(glewIsSupported("ARB_multi_draw_indirect")) {
-        std::cout << "Supported!!!\n";
-    }
-    
     // Clear colour buffer
     glClearColor(1.0, 1.0, 1.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -48,7 +43,7 @@ int main(int argc, const char * argv[]) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     // Dynamic Vertex Buffer
-    DrawBuffer<GLfloat, GL_FLOAT> buffer{};
+    DrawBuffer buffer{};
     
     // Shader programs
     const GLchar* vs_draw = {
@@ -89,49 +84,58 @@ int main(int argc, const char * argv[]) {
     view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 //    projection = glm::perspective(45.0f, glfw.aspect_ratio(), 0.1f, 100.0f);
     projection = glm::ortho(0.0f, (float)glfw.width(), (float)glfw.height(), 0.0f, 0.1f, 100.0f);
-    GLint viewLoc = glGetUniformLocation(shader.program(), "view");
-    GLint projLoc = glGetUniformLocation(shader.program(), "projection");
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
+    GLint view_loc = glGetUniformLocation(shader.program(), "view");
+    GLint projection_loc = glGetUniformLocation(shader.program(), "projection");
+    glUniformMatrix4fv(view_loc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projection_loc, 1, GL_FALSE, glm::value_ptr(projection));
     
+    // Render Loop
+    bool in_segment = true;
+    bool write_successful = false;
+    double prev_xpos = 0.0, prev_ypos = 0.0;
     while(!glfwWindowShouldClose(window)) {
 
-//        if(buffer.size() <= (index+1)*buffer.stride()) {
-//        
-//            // NOTE: Use sparse buffers if available.
-//            
-//            buffer_size *= 2;
-//            buffer_bytes = sizeof(GLfloat)*buffer_size;
-//            
-//            GLuint tmp_vbo;
-//            glGenBuffers(1, &tmp_vbo);
-//            
-//            glBindVertexArray(vao);
-//            glBindBuffer(GL_ARRAY_BUFFER, tmp_vbo);
-//            glEnableVertexAttribArray(0);
-//            glVertexAttribPointer(0, length, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-//            glBufferData(GL_ARRAY_BUFFER, buffer_bytes, nullptr, GL_DYNAMIC_DRAW);
-//            glBindBuffer(GL_ARRAY_BUFFER, 0);
-//            glBindVertexArray(0);
-//            
-//            glBindBuffer(GL_COPY_READ_BUFFER, vbo);
-//            glBindBuffer(GL_COPY_WRITE_BUFFER, tmp_vbo);
-//            glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, index*stride);
-//            
-//            glDeleteBuffers(1, &vbo);
-//            vbo = tmp_vbo;
-//            
-//        }
+        // Resize if necessary
+        buffer.resize();
         
         // Check for and execute events - block if no events.
         glfwWaitEvents();
         
         // Clear buffers
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Update the buffer
+        if(glfw.mouse_down()) {
+            
+            // Get cursor position
+            double xpos, ypos;
+            glfwGetCursorPos(glfw.window(), &xpos, &ypos);
+            
+            // Write new positions to buffer
+            if(prev_xpos != xpos || prev_ypos != ypos || !in_segment) {
+                
+                // Start a new line segment
+                if(!in_segment) {
+                    in_segment = true;
+                    buffer.start_segment();
+                }
+                
+                prev_xpos = xpos;
+                prev_ypos = ypos;
+                buffer.write_to_buffer(xpos, ypos);
+                
+            }
+        } else if(in_segment) {
+            in_segment = false;
+            buffer.end_segment();
+        }
         
-        // Render
-        buffer.render(glfw, shader);
+        // Draw
+        shader.use();
+        buffer.draw();
+            
+        // Swap the buffer
+        glfwSwapBuffers(window);
 
     }
 }

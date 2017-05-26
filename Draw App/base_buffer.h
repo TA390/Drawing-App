@@ -13,8 +13,6 @@
 #include <cmath>
 #include <vector>
 #include <GL/glew.h>
-#include "glfw.h"
-#include "shader.h"
 #include "buffer_range_lock.h"
 
 //    GLuint length = 3;
@@ -34,22 +32,25 @@
 ////    if(mapped_data == nullptr) { throw std::runtime_error("Failed to map buffer."); }
 ////    GLfloat* data = static_cast<GLfloat*>(mapped_data);
 
+
 /* ------------------------------------------------------------------------------------ */
 
-template<class T, GLenum U>
 class BaseBuffer
 {
 public:
     BaseBuffer(const size_t, const GLuint, const GLuint = 0);
-    ~BaseBuffer();
+    virtual ~BaseBuffer();
     GLuint vao() const;
     GLuint vbo() const;
     size_t size() const;
     size_t bytes() const;
     GLuint stride() const;
     GLuint data_size() const;
-    virtual void render(const Glfw&, const Shader&) = 0;
-
+    virtual void start_segment() = 0;
+    virtual void end_segment() = 0;
+    virtual bool write_to_buffer(float xpos, float ypos) = 0;
+    virtual void draw() = 0;
+    
 protected:
     GLuint _vao;
     GLuint _vbo;
@@ -58,101 +59,49 @@ protected:
     GLuint _stride;
     GLuint _data_size;
     GLuint index;
-    bool in_segment;
     GLsync fence;
     GLbitfield flags;
     BufferRangeLock lock;
-    double prev_xpos, prev_ypos;
-    void configure_buffer(GLenum target);
 };
 
 /* ------------------------------------------------------------------------------------ */
 
-template<class T, GLenum U>
-BaseBuffer<T, U>::BaseBuffer(const size_t b_size, const GLuint d_size, const GLuint d_stride)
-: _vao{0}, _vbo{0}, _size{b_size}, _data_size{d_size}, lock{true}, in_segment{false}, index{0}, fence{nullptr}, prev_xpos{0}, prev_ypos{0}
-{
-    // VAO
-    glGenVertexArrays(1, &_vao);
-    
-    // VBO
-    glGenBuffers(1, &_vbo);
-    
-    // Vertex Buffer
-    _stride = d_stride;
-    _bytes = sizeof(T)*_size;
-    flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT;
-}
-
-/* ------------------------------------------------------------------------------------ */
-
-template<class T, GLenum U>
-void BaseBuffer<T, U>::configure_buffer(GLenum target)
-{
-    glBindVertexArray(_vao);
-    glBindBuffer(target, _vbo);
-    
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, _data_size, U, GL_FALSE, _stride, (GLvoid*)0);
-    glBufferData(target, _bytes, nullptr, GL_DYNAMIC_DRAW);
-    
-    glBindBuffer(target, 0);
-    glBindVertexArray(0);
-}
-
-/* ------------------------------------------------------------------------------------ */
-
-template<class T, GLenum U>
-BaseBuffer<T, U>::~BaseBuffer()
-{
-    glDeleteVertexArrays(1, &_vao);
-    glDeleteBuffers(1, &_vbo);
-}
-
-/* ------------------------------------------------------------------------------------ */
-
-template<class T, GLenum U>
-inline GLuint BaseBuffer<T, U>::vao() const
+inline GLuint BaseBuffer::vao() const
 {
     return _vao;
 }
 
 /* ------------------------------------------------------------------------------------ */
 
-template<class T, GLenum U>
-inline GLuint BaseBuffer<T, U>::vbo() const
+inline GLuint BaseBuffer::vbo() const
 {
     return _vbo;
 }
 
 /* ------------------------------------------------------------------------------------ */
 
-template<class T, GLenum U>
-inline GLuint BaseBuffer<T, U>::data_size() const
+inline GLuint BaseBuffer::data_size() const
 {
     return _data_size;
 }
 
 /* ------------------------------------------------------------------------------------ */
 
-template<class T, GLenum U>
-inline GLuint BaseBuffer<T, U>::stride() const
+inline GLuint BaseBuffer::stride() const
 {
     return _stride;
 }
 
 /* ------------------------------------------------------------------------------------ */
 
-template<class T, GLenum U>
-inline size_t BaseBuffer<T, U>::size() const
+inline size_t BaseBuffer::size() const
 {
     return _size;
 }
 
 /* ------------------------------------------------------------------------------------ */
 
-template<class T, GLenum U>
-inline size_t BaseBuffer<T, U>::bytes() const
+inline size_t BaseBuffer::bytes() const
 {
     return _bytes;
 }
