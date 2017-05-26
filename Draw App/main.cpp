@@ -39,6 +39,7 @@ int main(int argc, const char * argv[]) {
     
     // Configure OpenGL
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
@@ -49,19 +50,19 @@ int main(int argc, const char * argv[]) {
     const GLchar* vs_draw = {
         "#version 330 core\n"
         
-        "layout (location = 0) in vec3 vertex;"
+        "layout (location = 0) in vec4 data;"
         "uniform mat4 view;"
         "uniform mat4 projection;"
         "out vec4 colour;"
         
         "void main() {"
-            "gl_Position = projection * view * vec4(vertex, 1.0);"
+            "gl_Position = projection * view * vec4(data.xyz, 1.0);"
             "gl_PointSize = 10.0;"
             
             "if(gl_VertexID == 0) {"
-                "colour = vec4(0.0, 1.0, 0.0, 1.0);"
+                "colour = vec4(0.0, 1.0, 0.0, data.w);"
             "} else {"
-               "colour = vec4(1.0, 0.0, 0.0, 1.0);"
+               "colour = vec4(1.0, 0.0, 0.0, data.w);"
             "}"
         "}"
     };
@@ -89,7 +90,10 @@ int main(int argc, const char * argv[]) {
     glUniformMatrix4fv(view_loc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projection_loc, 1, GL_FALSE, glm::value_ptr(projection));
     
+    
+    
     // Render Loop
+    int i = 0;
     bool in_segment = true;
     bool write_successful = false;
     double prev_xpos = 0.0, prev_ypos = 0.0;
@@ -103,7 +107,7 @@ int main(int argc, const char * argv[]) {
         
         // Clear buffers
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+        
         // Update the buffer
         if(glfw.mouse_down()) {
             
@@ -111,24 +115,23 @@ int main(int argc, const char * argv[]) {
             double xpos, ypos;
             glfwGetCursorPos(glfw.window(), &xpos, &ypos);
             
-            // Write new positions to buffer
-            if(prev_xpos != xpos || prev_ypos != ypos || !in_segment) {
-                
-                // Start a new line segment
-                if(!in_segment) {
-                    in_segment = true;
-                    buffer.start_segment();
-                }
-                
-                prev_xpos = xpos;
-                prev_ypos = ypos;
-                buffer.write_to_buffer(xpos, ypos);
-                
+            // Start a new line segment
+            if(!in_segment) {
+                in_segment = true;
+                buffer.start_segment();
             }
+            
+            buffer.write_to_buffer(xpos, ypos);
+            
         } else if(in_segment) {
             in_segment = false;
             buffer.end_segment();
         }
+        
+        if(i%100) {
+            buffer.update_buffer();
+        }
+        ++i;
         
         // Draw
         shader.use();

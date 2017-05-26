@@ -17,6 +17,7 @@ struct Segment
 {
     GLuint index;
     GLuint count;
+    double time;
     GLuint& operator ++()
     {
         ++count;
@@ -35,11 +36,15 @@ public:
     void start_segment() override;
     void end_segment() override;
     bool write_to_buffer(float xpos, float ypos) override;
+    void update_buffer();
     void draw() override;
     void resize();
     
 private:
     std::vector<Segment> segments;
+    std::vector<double> times;
+    double time = 0.0;
+    int alpha_index = 0;
 };
 
 /* ------------------------------------------------------------------------------------ */

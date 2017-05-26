@@ -7,11 +7,12 @@
 //
 
 #include "draw_buffer.h"
+#include <GLFW/glfw3.h>
 
 /* ------------------------------------------------------------------------------------ */
 
 DrawBuffer::DrawBuffer()
-: BaseBuffer{static_cast<size_t>(std::pow(2.0, 20.0)), 3}
+: BaseBuffer{static_cast<size_t>(std::pow(2.0, 20.0)), 4}
 {
     
 }
@@ -27,7 +28,7 @@ DrawBuffer::~DrawBuffer()
 
 void DrawBuffer::start_segment()
 {
-    segments.push_back(Segment{index, 0});
+    segments.push_back(Segment{index, 0, glfwGetTime()});
 }
 /* ------------------------------------------------------------------------------------ */
 
@@ -42,6 +43,8 @@ void DrawBuffer::end_segment()
 
 bool DrawBuffer::write_to_buffer(float xpos, float ypos)
 {
+    
+    
     lock.remove_signaled_locks(0);
     glBindBuffer(GL_ARRAY_BUFFER, _vbo);
     GLuint start_index = index * _stride;
@@ -50,7 +53,9 @@ bool DrawBuffer::write_to_buffer(float xpos, float ypos)
     if(data != nullptr) {
         *data++ = xpos;
         *data++ = ypos;
-        *data = 0.0;
+        *data++ = 0.0; // z
+        *data = 1.0; // alpha
+        
         glFlushMappedBufferRange(GL_ARRAY_BUFFER, start_index, _data_size);
     }
     
@@ -60,9 +65,17 @@ bool DrawBuffer::write_to_buffer(float xpos, float ypos)
     if(write_successful) {
         ++index;
         ++segments.back();
+        times.push_back(glfwGetTime());
     }
     
     return write_successful;
+}
+
+/* ------------------------------------------------------------------------------------ */
+
+void DrawBuffer::update_buffer()
+{
+
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -73,9 +86,6 @@ void DrawBuffer::draw()
     for(auto& segment : segments) {
         glDrawArrays(GL_LINE_STRIP, segment.index, segment.count);
     }
-    
-    lock.lock_range((index-1)*_stride, _data_size);
-    fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glBindVertexArray(0);
 }
 

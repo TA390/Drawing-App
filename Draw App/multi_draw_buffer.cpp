@@ -71,8 +71,6 @@ void MultiDrawBuffer::draw()
 {
     glBindVertexArray(_vao);
     glMultiDrawArraysIndirect(GL_LINE_STRIP, &*commands.begin(), commands.size(), 0);
-    lock.lock_range((index-1)*_stride, _data_size);
-    fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glBindVertexArray(0);
 }
 
